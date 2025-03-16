@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wage Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css">
+    <!-- Add Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .navbar {
+            margin-bottom: 20px;
+        }
+        body {
+            font-family: 'Poppins', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+        }
+        .table-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .calculation-superscript {
+            font-size: 0.8em;
+            color: gray;
+            float: right;
+        }
+        .wage-value {
+            text-align: center;
+            font-weight: bold;
+        }
+        .tooltip-container {
+            position: absolute;
+            background: white;
+            border: 1px solid black;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            white-space: nowrap;
+            display: none;
+            z-index: 10;
+        }
+        .highlight-box {
+            background-color: #feea01;
+            padding: 5%;
+            border-radius: 1%;
+            text-align: center;
+            font-weight: bold;
+        }
+        .underline-animation {
+            position: relative;
+            display: inline-block;
+            font-weight: bold;
+        }
+        .underline-animation::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 0;
+            height: 2px;
+            background-color: green;
+            transition: width 0.5s ease-in-out;
+        }
+        .underline-animation.animated::after {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Wage Progress Tracker</a>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <div class="">
+            <h2>City of Toronto Part Time Recreation</h2>
+        </div>
+        <form id="wageForm" class="mt-4">
+            <div class="mb-3">
+                <label for="jobTitle" class="form-label">Enter Your Job Title:</label>
+                <input type="text" class="form-control" id="jobTitle" placeholder="Start typing your job title...">
+            </div>
+            <button type="button" class="btn btn-primary" id="calculateButton">Calculate</button>
+        </form>
+
+        <div class="table-container">
+            <h3 id="selectedJobTitle" class="mt-4"></h3>
+            <div id="result" class="mt-4"></div>
+        </div>
+
+        <div id="chartSection" class="chart-container">
+            <canvas id="wageChart"></canvas>
+            <div id="chartTooltipContainer"></div>
+        </div>
+
+        <!-- Informative Box -->
+        <div id="equipmentInfo" class="alert alert-info mt-4" style="display: none;">
+            <strong>For the first time ever, we have won coverage for reimbursement of equipment for <span id="eligibleJobTitle"></span>s.</strong>
+            For a full list, <a href="#" id="equipmentModalTrigger" data-bs-toggle="modal" data-bs-target="#equipmentModal">click here</a>.
+        </div>
+
+        <!-- Modal for Eligible Equipment -->
+        <div class="modal fade" id="equipmentModal" tabindex="-1" aria-labelledby="equipmentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="equipmentModalLabel">Eligible Equipment</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Eligible Equipment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipmentTableBody">
+                                <!-- Equipment data will be dynamically populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Parse job titles and wage grades from the CSV
+            const csvData = `
+                Wage Grade,Job Classifications
+                1,"Rec Worker Default, Assistant Camp Counsellor/ Playground Leader, Camp Inventory and Equipment Clerk, Gatekeeper, Hallway Monitor, Scorekeeper, Franklin Children's Garden Attendant, Information Booth Attendant, Tram Tour Guide"
+                2,"Audio Visual Technician Assistant, Building Attendant, Facility Attendant, Rink Guard, Assistant Sports Instructor, Building Attendant / Rink Attendant, Fishing Attendant, Snack Bar Attendant (Leaside Gardens)"
+                3,"Weight Room Attendant, Skate Program Assistant Instructor, Ski/Snowboard Assistant Instructor, Park Attendant, Sports Monitor"
+                4,"Aquatic Program Assistant, Assistant Art Instructor, Camp Buildings and Grounds Coordinator, Permit Monitor, Rental Shop Technician, Life Operator, Part-Time Program Clerk, Tram Driver, Parking Attendant"
+                5,"Special Needs Program Staff, Preschool and Children Program Leader, Park Stadium / Rink Facility Attendant-In-Charge, Permit Hall Convenor, Leisure Skate Location Assistant In-Charge, Ski Patrol Attendant"
+                6,"Wading Pool Attendant, Camp Counsellor/ Playground Leader, Curling Ice Tech Facility Operations, Franklin Children's Garden Instructor, Community Youth Leader"
+                7,"First Aid Coordinator, Office Assistant, Recreation Customer Service Rep, Fitness Centre Staff, Parks Youth Leader, Assistant Life Coordinator, Rental Shop Assistant Coordinator, Sports Organizer, Administrative Assistant, Payroll Time Entry Assistant"
+                8,"Preschool and Children Program Instructor, Facility In-Charge, Leisure Skate Location In-Charge, Assistant Snow Centre Administrator, Sports Instructor, Boathouse Attendant, Ropes Challenge Course Program Staff"
+                9,"Children’s Arts & Crafts Instructor, Leadership Development Coordinator, Specialty Arts Camp Leader, Older Adult General Interest Convenor, Eco Program Instructor, Ski and Snowboard Instructor, Ski Park Coordinator, Boathouse In-Charge"
+                10,"Lifeguard, Camp Specialty Instructor, Museum Program Instructor, Education Assistant, Preschool and Children Program Coordinator, Fitness Consultant, Parks Youth Coordinator, Leisure Skate Coordinator, On-Snow Coordinator, Life Coordinator, Trainer, Part-Time Staff, Bartender - Curling Club, Community Youth Supervisor, Leader-in-Training Instructor, After School Rec Care Program Site Coordinator"
+                11,"Swim Instructor, Lifeguard Waterfront, Head Lifeguard Pool, Special Needs Camp/ Program Director, Aquatic Specialty Instructor, Adult / Older Adult Craft / Hobby Instructor, Performing Arts Instructor, Camp Location Coordinator, Camp Naorca/ Clareville Camp Assistant Director, Can-Bike Instructor, Specialty Arts Camp Coordinator, Older Adult Community Coordinator, Older Adult Program Coordinator, Eco Program Expansion Specialist, Skate Programs Head Instructor, Rental Shop Coordinator"
+                12,"Part-Time Pool In-Charge, Dance Instructor, Music Instructor, Visual Arts Instructor, Camp Area Coordinator, Can-Bike Instructor Trainer, Child Youth Art Instructor, Program Coordinator, Pottery Technician, Historical Interpreter, Preschool and Children / Multiple Program Coordinator, Preschool and Children Program Specialist, Eco Program Coordinator, Afterschool Rec Care Area Coordinator"
+                13,"Head Lifeguard Waterfront, Special Needs Area Coordinator, Aquatic Examiner, Camp Naorca / Clareville Camp Director, Can-Bike Program Coordinator, Skate Programs Coordinator, Snow Centre Administrator, Snow School Coordinator, City Wide Sports Convenor, Specialty Sports Instructor, Youth Leadership Program Coordinator, Youth Program Coordinator, Community Leadership Afterschool Program Coordinator"
+                14,"Part-Time Aquatic Coordinator, Part-Time Aquatic Coordinator Waterfront, Adult Art Instructor, Senior Historical Interpreter"
+                15,"No positions"
+                16,"No positions"
+                7RM1,"Aqua Fitness Instructor, Fitness Instructor, Personal Trainer"
+                7RM2,"Specialty Aqua Fitness Instructor, Specialty Fitness Instructor"
+            `;
+
+            const jobToWageGrade = {};
+            const jobTitles = [];
+
+            // Parse the CSV data
+            csvData.trim().split("\n").forEach((line, index) => {
+                if (index === 0) return; // Skip header
+                const [wageGrade, jobs] = line.split(/,(.+)/); // Split by first comma
+                const jobList = jobs.replace(/"/g, "").split(",").map(job => job.trim()); // Clean and split jobs
+                jobList.forEach(job => {
+                    jobToWageGrade[job] = wageGrade.trim();
+                    jobTitles.push(job);
+                });
+            });
+
+            $("#jobTitle").autocomplete({
+                source: jobTitles,
+                minLength: 1
+            });
+
+            $("#calculateButton").on("click", function() {
+                calculateWage();
+                setTimeout(scrollToResults, 500);
+            });
+
+            function calculateWage() {
+                let jobTitle = $("#jobTitle").val();
+                if (!jobTitle) {
+                    alert("Please enter a job title.");
+                    return;
+                }
+
+                const wageGrade = jobToWageGrade[jobTitle];
+                if (!wageGrade) {
+                    alert("Job title not found in the wage grade data.");
+                    return;
+                }
+
+                // Check if the job title is eligible for equipment
+                const eligibleEquipmentData = {
+                    Aquatics: ["Aquatic Examiner", "Aquatic Program Assistant", "Aquatic Specialty Instructor", "Head Lifeguard Pool", "Head Lifeguard Waterfront", "Lifeguard", "Lifeguard Waterfront", "Part Time Aquatic Coordinator", "Part Time Aquatic Coordinator Waterfront", "Part Time Pool In-Charge", "Swim Instructor"],
+                    Skate: ["Rink Guard", "Skate Programs Head Instructor", "Skate Programs Instructor"],
+                    Ski: ["Assistant Ski Patrol Coordinator", "Ski/Snowboard Assistant Instructor", "Ski & Snowboard Instructor", "Ski Patrol Attendant", "Specialty Ski/Snowboard Instructor"]
+                };
+
+                const equipmentList = {
+                    Aquatics: ["Bathing Suit"],
+                    Skate: ["Cold Weather Undergarments", "Hockey Helmet", "Skates"],
+                    Ski: ["Cold Weather Undergarments", "Helmet", "Ski Equipment"]
+                };
+
+                let eligibleCategory = null;
+                let eligibleEquipment = null;
+                for (const [category, jobs] of Object.entries(eligibleEquipmentData)) {
+                    if (jobs.includes(jobTitle)) {
+                        eligibleCategory = category;
+                        eligibleEquipment = equipmentList[category].join(", ");
+                        break;
+                    }
+                }
+
+                if (eligibleCategory) {
+                    $("#eligibleJobTitle").text(jobTitle);
+                    $("#equipmentInfo").html(`
+                        <strong>For the first time ever, we have won $85 annually for reimbursement of equipment for <span id="eligibleJobTitle">${jobTitle}s</span>.</strong>
+                        Eligible expense: ${eligibleEquipment}. For a full list, <a href="#" id="equipmentModalTrigger" data-bs-toggle="modal" data-bs-target="#equipmentModal">click here</a>.
+                    `);
+                    $("#equipmentInfo").show();
+
+                    // Populate the modal with all equipment for all job classifications
+                    const equipmentTableBody = Object.entries(equipmentList)
+                        .map(([category, items]) => items.map(item => `<tr><td>${category}</td><td>${item}</td></tr>`).join(""))
+                        .join("");
+                    $("#equipmentTableBody").html(equipmentTableBody);
+                } else {
+                    $("#equipmentInfo").hide(); // Hide the info box if not eligible
+                }
+
+                const wageData = {
+                    1: { rate2024: 17.2, preATB: 17.45, difference: 0.25, rate2025: 18.14, rate2026: 18.85, rate2027: 19.57, rate2028: 20.16, atbPercentages: [3.9, 3.8, 3.0] },
+                    2: { rate2024: 17.2, preATB: 17.85, difference: 0.65, rate2025: 18.56, rate2026: 19.28, rate2027: 20.01, rate2028: 20.61, atbPercentages: [3.9, 3.8, 3.0] },
+                    3: { rate2024: 17.2, preATB: 18.0, difference: 0.8, rate2025: 18.71, rate2026: 19.44, rate2027: 20.18, rate2028: 20.79, atbPercentages: [3.9, 3.8, 3.0] },
+                    4: { rate2024: 17.2, preATB: 18.15, difference: 0.95, rate2025: 18.87, rate2026: 19.61, rate2027: 20.36, rate2028: 20.97, atbPercentages: [3.9, 3.8, 3.0] },
+                    5: { rate2024: 17.2, preATB: 18.3, difference: 1.1, rate2025: 19.02, rate2026: 19.76, rate2027: 20.51, rate2028: 21.13, atbPercentages: [3.9, 3.8, 3.0] },
+                    6: { rate2024: 17.2, preATB: 18.45, difference: 1.25, rate2025: 19.18, rate2026: 19.93, rate2027: 20.69, rate2028: 21.31, atbPercentages: [3.9, 3.8, 3.0] },
+                    7: { rate2024: 17.2, preATB: 18.6, difference: 1.4, rate2025: 19.33, rate2026: 20.08, rate2027: 20.84, rate2028: 21.47, atbPercentages: [3.9, 3.8, 3.0] },
+                    8: { rate2024: 17.82, preATB: 19.2, difference: 1.38, rate2025: 19.96, rate2026: 20.74, rate2027: 21.53, rate2028: 22.18, atbPercentages: [3.9, 3.8, 3.0] },
+                    9: { rate2024: 18.44, preATB: 19.6, difference: 1.16, rate2025: 20.37, rate2026: 21.16, rate2027: 21.96, rate2028: 22.62, atbPercentages: [3.9, 3.8, 3.0] },
+                    10: { rate2024: 19.82, preATB: 20.37, difference: 0.55, rate2025: 21.17, rate2026: 22.0, rate2027: 22.84, rate2028: 23.53, atbPercentages: [3.9, 3.8, 3.0] },
+                    11: { rate2024: 21.94, preATB: 22.59, difference: 0.65, rate2025: 23.48, rate2026: 24.4, rate2027: 25.33, rate2028: 26.09, atbPercentages: [3.9, 3.8, 3.0] },
+                    12: { rate2024: 24.05, preATB: 24.7, difference: 0.65, rate2025: 25.68, rate2026: 26.68, rate2027: 27.69, rate2028: 28.52, atbPercentages: [3.9, 3.8, 3.0] },
+                    13: { rate2024: 26.21, preATB: 26.85, difference: 0.64, rate2025: 27.91, rate2026: 29.0, rate2027: 30.1, rate2028: 31.0, atbPercentages: [3.9, 3.8, 3.0] },
+                    14: { rate2024: 28.35, preATB: 28.85, difference: 0.5, rate2025: 29.99, rate2026: 31.16, rate2027: 32.34, rate2028: 33.31, atbPercentages: [3.9, 3.8, 3.0] },
+                    15: { rate2024: 30.48, preATB: 31.0, difference: 0.52, rate2025: 32.22, rate2026: 33.48, rate2027: 34.75, rate2028: 35.79, atbPercentages: [3.9, 3.8, 3.0] },
+                    16: { rate2024: 32.62, preATB: 33.25, difference: 0.63, rate2025: 34.56, rate2026: 35.91, rate2027: 37.27, rate2028: 38.39, atbPercentages: [3.9, 3.8, 3.0] },
+                    "7RM1": { rate2024: 28.28, preATB: 28.75, difference: 0.47, rate2025: 29.89, rate2026: 31.06, rate2027: 32.24, rate2028: 33.21, atbPercentages: [3.9, 3.8, 3.0] },
+                    "7RM2": { rate2024: 33.66, preATB: 34.13, difference: 0.47, rate2025: 35.48, rate2026: 36.86, rate2027: 38.26, rate2028: 39.41, atbPercentages: [3.9, 3.8, 3.0] }
+                };
+
+                const wageInfo = wageData[wageGrade];
+                if (!wageInfo) {
+                    alert("Wage data not found for the selected job title.");
+                    return;
+                }
+
+                // Prepare wage data for the table
+                const wages = [
+                    wageInfo.rate2024, // 2024 Rate (Pre-ATB)
+                    wageInfo.rate2025, // 2025 Rate
+                    wageInfo.rate2026, // 2026 Rate
+                    wageInfo.rate2027, // 2027 Rate
+                    wageInfo.rate2028  // 2028 Rate
+                ];
+
+                const labels = ["2024", "2025", "2026", "2027", "2028"];
+                let tableHTML = `<h4>${jobTitle} (Wage Grade: ${wageGrade}) - Voting YES on <strong>MARCH XXX</strong>, means you secure these wage increases for the next four years</h4>`;
+                tableHTML += `<table class='table table-striped mt-4'><thead><tr>
+                    <th>Year</th><th>Hourly Wage</th><th>Percentage Increase</th>
+                    </tr></thead><tbody>`;
+
+                let totalPercentageIncrease = 0;
+
+                for (let i = 0; i < labels.length; i++) {
+                    let percentageIncrease = "-";
+                    if (i === 1) {
+                        percentageIncrease = `${(wageInfo.difference + 3.95).toFixed(2)}%`; // 2025 custom calculation
+                    } else if (i > 1) {
+                        percentageIncrease = `${wageInfo.atbPercentages[i - 2].toFixed(2)}%`; // Across-the-board percentages for 2026–2028
+                    }
+
+                    if (i > 0) {
+                        totalPercentageIncrease += parseFloat(percentageIncrease.replace("%", "")) || 0;
+                    }
+
+                    let wageCell = `$${wages[i].toFixed(2)}`;
+                    if (i === 1) { // Combine underline animation and tooltip for 2025 cell
+                        wageCell = `<span class="underline-animation" id="underline2025" data-bs-toggle="tooltip" data-bs-placement="right" title="$${wageInfo.difference.toFixed(2)} + 3.95%">$${wages[i].toFixed(2)}</span>`;
+                    }
+
+                    tableHTML += `<tr><td>${labels[i]}</td><td>${wageCell}</td><td>${percentageIncrease}</td></tr>`;
+                }
+                tableHTML += `</tbody></table>`;
+
+                // Set the chart title to display the total percentage increase
+                const totalPercentageHeading = `An increase of ${totalPercentageIncrease.toFixed(2)}% over four years`;
+
+                // Pass the title to the chart generation function
+                setTimeout(() => generateChart(labels, wages, jobTitle, totalPercentageHeading), 1000);
+
+                $("#result").html(tableHTML + totalPercentageHeading);
+                $('[data-bs-toggle="tooltip"]').tooltip(); // Initialize tooltips
+
+                // Automatically show the tooltip for 2025 after 200ms
+                setTimeout(() => {
+                    $('span[data-bs-toggle="tooltip"]').tooltip('show');
+                }, 200);
+
+                setTimeout(() => generateChart(labels, wages, jobTitle), 1000);
+
+                setTimeout(() => {
+                    const underlineElement = document.getElementById("underline2025");
+                    if (underlineElement) {
+                        underlineElement.classList.add("animated"); // Trigger the underline animation
+                    }
+                    $('[data-bs-toggle="tooltip"]').tooltip(); // Initialize tooltips
+                }, 1500); // Delay to allow table rendering
+            }
+        });
+
+        function generateChart(labels, data, jobTitle) {
+            let ctx = document.getElementById("wageChart").getContext("2d");
+
+            if (window.wageChartInstance) {
+                window.wageChartInstance.destroy();
+            }
+
+            let chart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: "blue",
+                        backgroundColor: "rgba(0, 123, 255, 0.5)",
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: "yellow",
+                        pointStyle: 'circle',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    layout: {
+                        padding: {
+                            top: 20, // Add padding to ensure the top data point is visible
+                            right: 10,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                title: function() {
+                                    return jobTitle;
+                                },
+                                label: function(context) {
+                                    return `Wage: $${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        },
+                        datalabels: {
+                            align: 'top',
+                            anchor: 'end',
+                            formatter: function(value) {
+                                return `$${value.toFixed(2)}`;
+                            },
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            color: 'black',
+                            display: true
+                        }
+                    },
+                    animation: {
+                        duration: 2000
+                    },
+                    scales: {
+                        y: {
+                            ticks: { callback: value => `$${value.toFixed(2)}` },
+                            grace: '10%' // Add extra space above the highest value
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+
+            window.wageChartInstance = chart;
+        }
+
+        function scrollToResults() {
+            $("html, body").animate({ scrollTop: $("#chartSection").offset().top }, 1000);
+        }
+    </script>
+</body>
+</html>
