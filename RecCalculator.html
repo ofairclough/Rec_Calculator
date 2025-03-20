@@ -76,12 +76,25 @@
         .underline-animation.animated::after {
             width: 100%;
         }
+
+        .banner-79 {
+                    text-align: center;
+                    padding: 10px;
+                }
+
+                .banner-79  {
+                    font-weight: 900; /* Extra bold */
+                    color: #09152d;
+                    display: inline-block; /* Make the background wrap tightly around the text */
+                    background-color: yellow; /* Highlight effect */
+                    padding: 0 5px; /* Add some padding for the highlight */
+                }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Wage Progress Tracker</a>
+            <a class="navbar-brand banner-79">Cupe Local 79</a>
         </div>
     </nav>
     
@@ -89,12 +102,35 @@
         <div class="">
             <h2>City of Toronto Part Time Recreation</h2>
         </div>
-        <form id="wageForm" class="mt-4">
-            <div class="mb-3">
-                <label for="jobTitle" class="form-label">Enter Your Job Title:</label>
+        <form id="wageForm">
+            <div class="row mb-3 align-items-center">
+            <div class="col-sm-4">
+                <label for="jobTitle" class="form-label">Job Title:</label>
+            </div>
+            <div class="col-sm-8">
                 <input type="text" class="form-control" id="jobTitle" placeholder="Start typing your job title...">
             </div>
-            <button type="button" class="btn btn-primary" id="calculateButton">Calculate</button>
+            </div>
+            <div class="row mb-3 align-items-center">
+            <div class="col-sm-4">
+                <label for="weeklyHours" class="form-label">Weekly Hours:</label>
+            </div>
+            <div class="col-sm-8">
+                <input type="number" class="form-control" maxlength="2" id="weeklyHours" placeholder="Enter hours" min="1" max="40" oninput="if(this.value.length > 2) this.value = this.value.slice(0, 2);">
+            </div>
+            </div>
+            <div class="text-center">
+            <button type="button" class="btn btn-primary" id="calculateButton">
+                <i class="fas fa-calculator"></i> Calculate
+            </button>
+            <button type="button" class="btn btn-secondary ms-2" id="resetButtonInline">
+                <i class="fas fa-undo"></i>
+            </button>
+            </div>
+        </form>
+                </button>
+            </div>
+            </div>
         </form>
 
         <div class="table-container">
@@ -107,7 +143,7 @@
             <div id="chartTooltipContainer"></div>
         </div>
 
-        <!-- Informative Box -->
+        <!-- Move the Informative Box here -->
         <div id="equipmentInfo" class="alert alert-info mt-4" style="display: none;">
             <strong>For the first time ever, we have won coverage for reimbursement of equipment for <span id="eligibleJobTitle"></span>s.</strong>
             For a full list, <a href="#" id="equipmentModalTrigger" data-bs-toggle="modal" data-bs-target="#equipmentModal">click here</a>.
@@ -137,6 +173,12 @@
                 </div>
             </div>
         </div>
+
+        <div class="text-center mt-5 mb-5">
+            <button type="button" class="btn btn-secondary" id="resetButton">
+                <i class="fas fa-redo"></i> Reset
+            </button>
+        </div>
     </div>
 
     <script>
@@ -147,7 +189,7 @@
                 1,"Rec Worker Default, Assistant Camp Counsellor/ Playground Leader, Camp Inventory and Equipment Clerk, Gatekeeper, Hallway Monitor, Scorekeeper, Franklin Children's Garden Attendant, Information Booth Attendant, Tram Tour Guide"
                 2,"Audio Visual Technician Assistant, Building Attendant, Facility Attendant, Rink Guard, Assistant Sports Instructor, Building Attendant / Rink Attendant, Fishing Attendant, Snack Bar Attendant (Leaside Gardens)"
                 3,"Weight Room Attendant, Skate Program Assistant Instructor, Ski/Snowboard Assistant Instructor, Park Attendant, Sports Monitor"
-                4,"Aquatic Program Assistant, Assistant Art Instructor, Camp Buildings and Grounds Coordinator, Permit Monitor, Rental Shop Technician, Life Operator, Part-Time Program Clerk, Tram Driver, Parking Attendant"
+                4,"Aquatic Program Assistant, Assistant Art Instructor, Camp Buildings and Grounds Coordinator, Permit Monitor, Rental Shop Technician, Lift Operator, Part-Time Program Clerk, Tram Driver, Parking Attendant"
                 5,"Special Needs Program Staff, Preschool and Children Program Leader, Park Stadium / Rink Facility Attendant-In-Charge, Permit Hall Convenor, Leisure Skate Location Assistant In-Charge, Ski Patrol Attendant"
                 6,"Wading Pool Attendant, Camp Counsellor/ Playground Leader, Curling Ice Tech Facility Operations, Franklin Children's Garden Instructor, Community Youth Leader"
                 7,"First Aid Coordinator, Office Assistant, Recreation Customer Service Rep, Fitness Centre Staff, Parks Youth Leader, Assistant Life Coordinator, Rental Shop Assistant Coordinator, Sports Organizer, Administrative Assistant, Payroll Time Entry Assistant"
@@ -178,20 +220,93 @@
                 });
             });
 
-            $("#jobTitle").autocomplete({
-                source: jobTitles,
-                minLength: 1
-            });
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                $("#jobTitle").on("focus", function() {
+                    const modalHtml = `
+                    <div class="modal fade" id="autocompleteModal" tabindex="-1" aria-labelledby="autocompleteModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-fullscreen">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="autocompleteModalLabel">Select Job Title</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <input type="text" class="form-control" id="modalJobTitle" placeholder="Start typing your job title...">
+                                    <ul id="autocompleteList" class="list-group mt-3"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+
+                    if (!$("#autocompleteModal").length) {
+                        $("body").append(modalHtml);
+                    }
+
+                    $("#modalJobTitle").autocomplete({
+                        source: jobTitles,
+                        minLength: 1,
+                        response: function(event, ui) {
+                            const list = ui.content.map(item => `<li class="list-group-item autocomplete-item">${item.value}</li>`).join("");
+                            $("#autocompleteList").html(list);
+                        }
+                    });
+
+                    // Handle click on autocomplete items
+                    $(document).on("click", ".autocomplete-item", function() {
+                        const selectedValue = $(this).text();
+                        $("#jobTitle").val(selectedValue);
+                        $("#autocompleteModal").modal("hide");
+                    });
+
+                    $("#autocompleteModal").modal("show");
+
+                    $("#autocompleteModal").on("shown.bs.modal", function() {
+                        $("#modalJobTitle").focus();
+                    });
+                });
+            } else {
+                $("#jobTitle").autocomplete({
+                    source: jobTitles,
+                    minLength: 1
+                });
+            }
 
             $("#calculateButton").on("click", function() {
                 calculateWage();
                 setTimeout(scrollToResults, 500);
             });
 
+            // Reset button functionality
+            $("#resetButton").on("click", function() {
+                // Reset all inputs and results
+                $("#jobTitle").val("");
+                $("#weeklyHours").val("");
+                $("#result").html("");
+                $("#equipmentInfo").hide();
+                $("#chartSection canvas").remove(); // Remove the chart
+                $("#chartSection").append('<canvas id="wageChart"></canvas>'); // Re-add the canvas
+                $("html, body").animate({ scrollTop: 0 }, 1000); // Scroll to the top
+            });
+
+            // Inline reset button functionality
+            $("#resetButtonInline").on("click", function() {
+                $("#resetButton").trigger("click"); // Trigger the main reset button's functionality
+            });
+
             function calculateWage() {
                 let jobTitle = $("#jobTitle").val();
+                let weeklyHours = parseFloat($("#weeklyHours").val());
+
                 if (!jobTitle) {
                     alert("Please enter a job title.");
+                    return;
+                }
+
+                if (!weeklyHours || weeklyHours <= 0) {
+                    alert("Please enter valid weekly hours.");
                     return;
                 }
 
@@ -232,11 +347,21 @@
                     `);
                     $("#equipmentInfo").show();
 
-                    // Populate the modal with all equipment for all job classifications
-                    const equipmentTableBody = Object.entries(equipmentList)
-                        .map(([category, items]) => items.map(item => `<tr><td>${category}</td><td>${item}</td></tr>`).join(""))
+                    // Populate the modal with a chart divided by area showing all eligible positions
+                    const chartData = Object.entries(eligibleEquipmentData)
+                        .map(([category, jobs]) => {
+                            const equipmentItems = equipmentList[category].join(", ");
+                            return `
+                                <tr>
+                                    <td>${category}</td>
+                                    <td>${jobs.join("<br>")}</td>
+                                    <td>${equipmentItems}</td>
+                                </tr>
+                            `;
+                        })
                         .join("");
-                    $("#equipmentTableBody").html(equipmentTableBody);
+
+                    $("#equipmentTableBody").html(chartData);
                 } else {
                     $("#equipmentInfo").hide(); // Hide the info box if not eligible
                 }
@@ -277,8 +402,11 @@
                     wageInfo.rate2028  // 2028 Rate
                 ];
 
+                // Calculate gross weekly earnings
+                const grossWeeklyEarnings = (wages[0] * weeklyHours).toFixed(2); // Use 2024 rate for calculation
+
                 const labels = ["2024", "2025", "2026", "2027", "2028"];
-                let tableHTML = `<h4>${jobTitle} (Wage Grade: ${wageGrade}) - Voting YES on <strong>MARCH 22ND</strong>, means you secure these wage increases for the next four years</h4>`;
+                let tableHTML = `<h5>${jobTitle} (WG: ${wageGrade}) - Gross Weekly Earnings: <strong>$${grossWeeklyEarnings}</strong></h5>`;
                 tableHTML += `<table class='table table-striped mt-4'><thead><tr>
                     <th>Year</th><th>Hourly Wage</th><th>Percentage Increase</th>
                     </tr></thead><tbody>`;
@@ -306,13 +434,14 @@
                 }
                 tableHTML += `</tbody></table>`;
 
-                // Set the chart title to display the total percentage increase
+                // Add disclaimer below the total percentage increase
                 const totalPercentageHeading = `An increase of ${totalPercentageIncrease.toFixed(2)}% over four years`;
+                const disclaimer = `<p class="text-muted mt-3">
+                    These calculations are for illustration purposes only. Dollar and percentage amounts are approximate. Actual wage increases will be determined through the implementation of the Tentative Agreement process.
+                </p>`;
 
-                // Pass the title to the chart generation function
-                setTimeout(() => generateChart(labels, wages, jobTitle, totalPercentageHeading), 1000);
-
-                $("#result").html(tableHTML + totalPercentageHeading);
+                // Pass the title and disclaimer to the result section
+                $("#result").html(tableHTML + totalPercentageHeading + disclaimer);
                 $('[data-bs-toggle="tooltip"]').tooltip(); // Initialize tooltips
 
                 // Automatically show the tooltip for 2025 after 200ms
@@ -330,6 +459,11 @@
                     $('[data-bs-toggle="tooltip"]').tooltip(); // Initialize tooltips
                 }, 1500); // Delay to allow table rendering
             }
+
+            // Hide tooltips when the modal is opened
+            $('#equipmentModal').on('show.bs.modal', function () {
+                $('[data-bs-toggle="tooltip"]').tooltip('hide');
+            });
         });
 
         function generateChart(labels, data, jobTitle) {
@@ -411,7 +545,12 @@
         }
 
         function scrollToResults() {
-            $("html, body").animate({ scrollTop: $("#chartSection").offset().top }, 1000);
+            const resultSection = $("#result");
+            const offset = 100; // Adjust this value to control how much of the section above remains visible
+
+            if (resultSection.length) {
+                $("html, body").animate({ scrollTop: resultSection.offset().top - offset }, 1000);
+            }
         }
     </script>
 </body>
